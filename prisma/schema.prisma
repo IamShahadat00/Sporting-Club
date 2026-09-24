@@ -1,0 +1,259 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  ADMIN
+MANAGER
+  VIEWER
+}
+
+enum MatchStatus {
+  SCHEDULED
+  LIVE
+  HALFTIME
+  FINISHED
+  POSTPONED
+}
+
+enum RegistrationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model User {
+  id            String   @id @default(cuid())
+  name          String
+  email         String   @unique
+  hashedPassword String?
+  role          Role     @default(VIEWER)
+  createdAt     DateTime @default(now())
+  matchesCreated Match[] @relation("MatchCreatedBy")
+  isApproved     Boolean  @default(false) 
+}
+
+model Season {
+  id           String    @id @default(cuid())
+  name         String    // "Season 7"
+  status       String    @default("UPCOMING") // UPCOMING | ACTIVE | COMPLETED
+  startDate    DateTime?
+  endDate      DateTime?
+  bannerImageUrl String?
+  matches      Match[]
+  bracket      Bracket?
+  registrations Registration[]
+  standings    Standing[]
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model Team {
+  id          String   @id @default(cuid())
+  name        String
+  logoUrl     String?
+  district    String?
+  founded     Int?
+   ownerName   String?  
+  description String?   @db.Text
+  titlesWon   Int       @default(0)
+  sponsorName String?
+  sponsorLogo String?
+  captainId   String?   // Player ID
+  players     Player[]
+  homeMatches Match[]  @relation("HomeTeam")
+  awayMatches Match[]  @relation("AwayTeam")
+  standings   Standing[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  ownerPhoto    String?   // NEW
+  mentorName    String?   // NEW
+  mentorPhoto   String?   // NEW
+  viceCaptainId String?   // NEW
+  mentorBio     String?   @db.Text // NEW
+   ownerBio      String?   @db.Text // NEW
+  
+}
+
+model Player {
+  id           String   @id @default(cuid())
+  name         String
+  photoUrl     String?
+  position     String?
+  jerseyNumber Int?
+  district     String?
+  teamId       String?
+  team         Team?    @relation(fields: [teamId], references: [id])
+  registrations Registration[]
+  mvpAwards    MvpAward[]
+  hallOfFame   HallOfFame[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+ goals        Int      @default(0)
+  assists      Int      @default(0)
+  yellowCards  Int      @default(0)
+  redCards     Int      @default(0)
+  isInjured    Boolean  @default(false)
+  returnDate   DateTime?
+   bio           String?   @db.Text
+   strongFoot    String?  @default("Right")
+}
+
+model Registration {
+  id        String   @id @default(cuid())
+  seasonId  String
+  season    Season   @relation(fields: [seasonId], references: [id])
+  playerId  String
+  player    Player   @relation(fields: [playerId], references: [id], onDelete: Cascade) 
+  status    RegistrationStatus @default(PENDING)
+  createdAt DateTime @default(now())
+  
+}
+
+model Match {
+  id              String      @id @default(cuid())
+  matchNumber     Int         @default(0) // <--- ENSURE THIS IS HERE
+  seasonId        String
+  season          Season      @relation(fields: [seasonId], references: [id])
+  homeTeamId      String
+  homeTeam        Team        @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeamId      String
+  awayTeam        Team        @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  homeScore       Int         @default(0)
+  awayScore       Int         @default(0)
+  
+  // Penalty Shootout Support
+  isPenalty       Boolean     @default(false)
+  homePens        Int?        @default(0)
+  awayPens        Int?        @default(0)
+
+  scheduledStart  DateTime
+  actualStart     DateTime?
+  status          MatchStatus @default(SCHEDULED)
+  venue           String?
+  broadcastUrl    String?     // <--- Added for Live Stream
+  report          String?     @db.Text
+  events          Json?       // Stores scorers and cards
+  
+  mvpAward        MvpAward?
+  createdById     String
+  createdBy       User        @relation("MatchCreatedBy", fields: [createdById], references: [id])
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  bracketMatches  BracketMatch[] 
+  
+}
+
+model BracketMatch {
+  id         String   @id @default(cuid())
+  bracketId  String
+   bracket    Bracket  @relation(fields: [bracketId], references: [id], onDelete: Cascade) // Add this
+  round      Int                  // 1 = R16, 2 = QF, etc.
+  slotIndex  Int                  // position within the round
+  matchId    String?              
+  label      String?              // "Winner of QF1" placeholder text
+  match      Match?   @relation(fields: [matchId], references: [id])
+  
+}
+
+model MvpAward {
+  id        String   @id @default(cuid())
+  matchId   String   @unique
+  match     Match    @relation(fields: [matchId], references: [id])
+  playerId  String
+   player    Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  photoUrl  String?
+  citation  String?  @db.Text  
+  stats     Json?               
+}
+
+model Standing {
+  id        String  @id @default(cuid())
+  seasonId  String
+  season    Season  @relation(fields: [seasonId], references: [id])
+  teamId    String
+  team      Team    @relation(fields: [teamId], references: [id])
+  played    Int     @default(0)
+  won       Int     @default(0)
+  drawn     Int     @default(0)
+  lost      Int     @default(0)
+  points    Int     @default(0)
+  goalDiff  Int     @default(0)
+   goalsFor     Int     @default(0) // ADD THIS
+  goalsAgainst Int     @default(0) // ADD THIS
+
+  @@unique([seasonId, teamId])
+}
+
+model Bracket {
+  id        String        @id @default(cuid())
+  seasonId  String        @unique
+  season    Season        @relation(fields: [seasonId], references: [id])
+  rounds    BracketMatch[]
+}
+
+model Sponsor {
+  id          String   @id @default(cuid())
+  name        String
+  logoUrl     String?
+  // We change tier to String to allow custom tiers like "Jersey Sponsor"
+  tier        String   @default("PARTNER") 
+  websiteUrl  String?
+  description String?  @db.Text
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+}
+model Banner {
+  id        String   @id @default(cuid())
+  imageUrl  String
+  linkUrl   String?
+  startAt   DateTime  // auto-shows from this time
+  endAt     DateTime  // auto-hides after this time
+  isActive  Boolean   @default(true) // manual override
+  createdAt DateTime  @default(now())
+}
+
+model Director {
+  id          String  @id @default(cuid())
+  name        String
+  designation String
+  photoUrl    String?
+  bio         String? @db.Text
+  order       Int     @default(0)
+   profession    String?
+}
+
+model HallOfFame {
+  id          String   @id @default(cuid())
+  
+  // FIX: Add these two lines to connect back to Player
+  playerId    String?
+  player      Player?  @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  
+  name        String   // Legendary Name (e.g. "Kazi Mushtaq")
+  title       String   // Legendary Title (e.g. "Best Captain")
+  year        String   // Years Active (e.g. "1995-2005")
+  description String?  @db.Text
+  imageUrl    String?  // High-res portrait
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Announcement {
+  id        String   @id @default(cuid())
+  title     String
+  content   String   @db.Text
+  imageUrl  String?
+  linkUrl   String?
+  type      String   @default("NEWS") // NEWS | EVENT | UPDATE
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
