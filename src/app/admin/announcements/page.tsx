@@ -5,11 +5,12 @@ import { CrudTable } from "@/components/admin/CrudTable";
 import { CrudFormDialog } from "@/components/admin/CrudFormDialog";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Megaphone } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
 export default function AnnouncementsAdminPage() {
-  const [news, setNews] = useState([]);
+  // 1. Added <any[]> here so TypeScript knows it's an array of items, not never[]
+  const [news, setNews] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
 
@@ -74,17 +75,17 @@ export default function AnnouncementsAdminPage() {
             {
               key: "type",
               label: "Category",
-              render: (n) => (
+              render: (n: any) => (
                 <Badge variant="outline" className="text-[10px] font-black">
-                  {n.type}
+                  {n?.type}
                 </Badge>
               ),
             },
             {
               key: "isActive",
               label: "Status",
-              render: (n) =>
-                n.isActive ? (
+              render: (n: any) =>
+                n?.isActive ? (
                   <Badge className="bg-pitch">Visible</Badge>
                 ) : (
                   <Badge variant="secondary">Hidden</Badge>
@@ -95,11 +96,11 @@ export default function AnnouncementsAdminPage() {
             setEditing(null);
             setOpen(true);
           }}
-          onEdit={(n) => {
+          onEdit={(n: any) => {
             setEditing(n);
             setOpen(true);
           }}
-          onDelete={async (n) => {
+          onDelete={async (n: any) => {
             if (confirm("Delete this news item permanently?")) {
               await fetch(`/api/announcements/${n.id}`, { method: "DELETE" });
               toast.success("News deleted");
