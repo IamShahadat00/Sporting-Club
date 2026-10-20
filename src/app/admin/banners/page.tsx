@@ -34,6 +34,7 @@ export default function BannersAdminPage() {
     fetch("/api/banners?admin=true")
       .then((r) => r.json())
       .then(setBanners);
+
   useEffect(() => {
     load();
   }, []);
@@ -47,19 +48,22 @@ export default function BannersAdminPage() {
     return <Badge className="bg-pitch">Live</Badge>;
   };
 
-  const handleSave = async (values: Record<string, any>) => {
+  const handleSave = async (values: Record<string, any>): Promise<void> => {
     const url = editing ? `/api/banners/${editing.id}` : "/api/banners";
     const res = await fetch(url, {
       method: editing ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(values),
     });
+
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      return toast.error(
+      toast.error(
         err?.error?.fieldErrors?.endAt?.[0] ?? "Failed to save banner",
       );
+      return; // Return void instead of returning the toast object
     }
+
     toast.success(editing ? "Banner updated" : "Banner scheduled");
     await load();
   };
@@ -76,12 +80,11 @@ export default function BannersAdminPage() {
       <CrudTable
         title="Advertisement Banners"
         items={banners}
-        // Update the columns array to this:
         columns={[
           {
             key: "imageUrl",
             label: "Preview",
-            render: (b) => (
+            render: (b: any) => (
               <img
                 src={b.imageUrl}
                 className="h-10 w-20 object-cover rounded"
@@ -99,7 +102,7 @@ export default function BannersAdminPage() {
             id: "window-text",
             key: "startAt",
             label: "Window",
-            render: (b) =>
+            render: (b: any) =>
               `${new Date(b.startAt).toLocaleDateString()} → ${new Date(b.endAt).toLocaleDateString()}`,
           },
         ]}
@@ -107,7 +110,7 @@ export default function BannersAdminPage() {
           setEditing(null);
           setDialogOpen(true);
         }}
-        onEdit={(b) => {
+        onEdit={(b: any) => {
           setEditing(b);
           setDialogOpen(true);
         }}
@@ -119,7 +122,9 @@ export default function BannersAdminPage() {
         title={editing ? "Edit banner" : "Schedule banner"}
         fields={bannerFields}
         initialValues={editing}
-        onSubmit={handleSave}
+        onSubmit={async (values) => {
+          await handleSave(values);
+        }}
       />
     </>
   );
