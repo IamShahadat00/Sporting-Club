@@ -149,8 +149,8 @@ export default function AnnouncementsAdminPage() {
             label: "Publishing Status",
             type: "select",
             options: [
-              { label: "Publicly Visible", value: true },
-              { label: "Save as Draft (Hidden)", value: false },
+              { label: "Publicly Visible", value: "true" },
+              { label: "Save as Draft (Hidden)", value: "false" },
             ],
           },
         ]}
