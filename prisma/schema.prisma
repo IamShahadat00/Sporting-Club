@@ -1,25 +1,24 @@
-generator client {
-  provider = "prisma-client-js"
-}
-
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
 
+generator client {
+  provider = "prisma-client-js"
+}
+
 enum Role {
   ADMIN
-MANAGER
+  MANAGER
+  EDITOR
   VIEWER
 }
 
-enum MatchStatus {
-  SCHEDULED
-  LIVE
-  HALFTIME
-  FINISHED
-  POSTPONED
+enum SeasonStatus {
+  UPCOMING
+  ACTIVE
+  COMPLETED
 }
 
 enum RegistrationStatus {
@@ -29,219 +28,206 @@ enum RegistrationStatus {
 }
 
 model User {
-  id            String   @id @default(cuid())
-  name          String
-  email         String   @unique
+  id             String    @id @default(cuid())
+  name           String
+  email          String    @unique
   hashedPassword String?
-  role          Role     @default(VIEWER)
-  createdAt     DateTime @default(now())
-  matchesCreated Match[] @relation("MatchCreatedBy")
-  isApproved     Boolean  @default(false) 
+  role           Role      @default(VIEWER)
+  isApproved     Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  matchesCreated Match[]   @relation("MatchCreatedBy")
 }
 
 model Season {
-  id           String    @id @default(cuid())
-  name         String    // "Season 7"
-  status       String    @default("UPCOMING") // UPCOMING | ACTIVE | COMPLETED
-  startDate    DateTime?
-  endDate      DateTime?
+  id             String         @id @default(cuid())
+  name           String
+  status         SeasonStatus   @default(UPCOMING)
+  startDate      DateTime?
+  endDate        DateTime?
   bannerImageUrl String?
-  matches      Match[]
-  bracket      Bracket?
-  registrations Registration[]
-  standings    Standing[]
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  matches        Match[]
+  standings      Standing[]
+  registrations  Registration[]
+  bracket        Bracket?
 }
 
 model Team {
-  id          String   @id @default(cuid())
-  name        String
-  logoUrl     String?
-  district    String?
-  founded     Int?
-   ownerName   String?  
-  description String?   @db.Text
-  titlesWon   Int       @default(0)
-  sponsorName String?
-  sponsorLogo String?
-  captainId   String?   // Player ID
-  players     Player[]
-  homeMatches Match[]  @relation("HomeTeam")
-  awayMatches Match[]  @relation("AwayTeam")
-  standings   Standing[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  ownerPhoto    String?   // NEW
-  mentorName    String?   // NEW
-  mentorPhoto   String?   // NEW
-  viceCaptainId String?   // NEW
-  mentorBio     String?   @db.Text // NEW
-   ownerBio      String?   @db.Text // NEW
-  
+  id            String     @id @default(cuid())
+  name          String
+  logoUrl       String?
+  district      String?
+  founded       Int?
+  titlesWon     Int?       @default(0)
+  ownerName     String?
+  ownerPhoto    String?
+  ownerBio      String?
+  mentorName    String?
+  mentorPhoto   String?
+  mentorBio     String?
+  description   String?
+  sponsorName   String?
+  sponsorLogo   String?
+  captainId     String?
+  viceCaptainId String?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  players       Player[]
+  homeMatches   Match[]    @relation("HomeTeam")
+  awayMatches   Match[]    @relation("AwayTeam")
+  standings     Standing[]
 }
 
 model Player {
-  id           String   @id @default(cuid())
-  name         String
-  photoUrl     String?
-  position     String?
-  jerseyNumber Int?
-  district     String?
-  teamId       String?
-  team         Team?    @relation(fields: [teamId], references: [id])
+  id            String         @id @default(cuid())
+  name          String
+  position      String?
+  jerseyNumber  Int?
+  district      String?
+  photoUrl      String?
+  strongFoot    String?
+  bio           String?
+  goals         Int            @default(0)
+  isInjured     Boolean        @default(false)
+  returnDate    DateTime?
+  teamId        String?
+  team          Team?          @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  mvpAwards     MvpAward[]
   registrations Registration[]
-  mvpAwards    MvpAward[]
-  hallOfFame   HallOfFame[]
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
- goals        Int      @default(0)
-  assists      Int      @default(0)
-  yellowCards  Int      @default(0)
-  redCards     Int      @default(0)
-  isInjured    Boolean  @default(false)
-  returnDate   DateTime?
-   bio           String?   @db.Text
-   strongFoot    String?  @default("Right")
-}
-
-model Registration {
-  id        String   @id @default(cuid())
-  seasonId  String
-  season    Season   @relation(fields: [seasonId], references: [id])
-  playerId  String
-  player    Player   @relation(fields: [playerId], references: [id], onDelete: Cascade) 
-  status    RegistrationStatus @default(PENDING)
-  createdAt DateTime @default(now())
-  
+  hallOfFame    HallOfFame[]
 }
 
 model Match {
-  id              String      @id @default(cuid())
-  matchNumber     Int         @default(0) // <--- ENSURE THIS IS HERE
+  id              String         @id @default(cuid())
+  matchNumber     Int
   seasonId        String
-  season          Season      @relation(fields: [seasonId], references: [id])
+  season          Season         @relation(fields: [seasonId], references: [id], onDelete: Cascade)
   homeTeamId      String
-  homeTeam        Team        @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  homeTeam        Team           @relation("HomeTeam", fields: [homeTeamId], references: [id])
   awayTeamId      String
-  awayTeam        Team        @relation("AwayTeam", fields: [awayTeamId], references: [id])
-  homeScore       Int         @default(0)
-  awayScore       Int         @default(0)
-  
-  // Penalty Shootout Support
-  isPenalty       Boolean     @default(false)
-  homePens        Int?        @default(0)
-  awayPens        Int?        @default(0)
-
+  awayTeam        Team           @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  homeScore       Int            @default(0)
+  awayScore       Int            @default(0)
+  status          String         @default("SCHEDULED")
   scheduledStart  DateTime
   actualStart     DateTime?
-  status          MatchStatus @default(SCHEDULED)
   venue           String?
-  broadcastUrl    String?     // <--- Added for Live Stream
-  report          String?     @db.Text
-  events          Json?       // Stores scorers and cards
-  
-  mvpAward        MvpAward?
+  broadcastUrl    String?
+  highlightsUrl   String?
+  highlightsTitle String?
+  report          String?
+  events          Json?          @default("[]")
+  isPenalty       Boolean        @default(false)
+  homePens        Int            @default(0)
+  awayPens        Int            @default(0)
   createdById     String
-  createdBy       User        @relation("MatchCreatedBy", fields: [createdById], references: [id])
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-  bracketMatches  BracketMatch[] 
-  
-}
-
-model BracketMatch {
-  id         String   @id @default(cuid())
-  bracketId  String
-   bracket    Bracket  @relation(fields: [bracketId], references: [id], onDelete: Cascade) // Add this
-  round      Int                  // 1 = R16, 2 = QF, etc.
-  slotIndex  Int                  // position within the round
-  matchId    String?              
-  label      String?              // "Winner of QF1" placeholder text
-  match      Match?   @relation(fields: [matchId], references: [id])
-  
+  createdBy       User           @relation("MatchCreatedBy", fields: [createdById], references: [id])
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  mvpAward        MvpAward?
+  bracketMatches  BracketMatch[]
 }
 
 model MvpAward {
   id        String   @id @default(cuid())
   matchId   String   @unique
-  match     Match    @relation(fields: [matchId], references: [id])
+  match     Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
   playerId  String
-   player    Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  player    Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  citation  String?
   photoUrl  String?
-  citation  String?  @db.Text  
-  stats     Json?               
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Standing {
-  id        String  @id @default(cuid())
-  seasonId  String
-  season    Season  @relation(fields: [seasonId], references: [id])
-  teamId    String
-  team      Team    @relation(fields: [teamId], references: [id])
-  played    Int     @default(0)
-  won       Int     @default(0)
-  drawn     Int     @default(0)
-  lost      Int     @default(0)
-  points    Int     @default(0)
-  goalDiff  Int     @default(0)
-   goalsFor     Int     @default(0) // ADD THIS
-  goalsAgainst Int     @default(0) // ADD THIS
+  id           String   @id @default(cuid())
+  seasonId     String
+  season       Season   @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  teamId       String
+  team         Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  played       Int      @default(0)
+  won          Int      @default(0)
+  drawn        Int      @default(0)
+  lost         Int      @default(0)
+  points       Int      @default(0)
+  goalDiff     Int      @default(0)
+  goalsFor     Int      @default(0)
+  goalsAgainst Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   @@unique([seasonId, teamId])
 }
 
+model Registration {
+  id        String             @id @default(cuid())
+  playerId  String
+  player    Player             @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  seasonId  String
+  season    Season             @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  status    RegistrationStatus @default(PENDING)
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+}
+
 model Bracket {
-  id        String        @id @default(cuid())
-  seasonId  String        @unique
-  season    Season        @relation(fields: [seasonId], references: [id])
+  id        String         @id @default(cuid())
+  seasonId  String         @unique
+  season    Season         @relation(fields: [seasonId], references: [id], onDelete: Cascade)
   rounds    BracketMatch[]
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+}
+
+model BracketMatch {
+  id        String   @id @default(cuid())
+  bracketId String
+  bracket   Bracket  @relation(fields: [bracketId], references: [id], onDelete: Cascade)
+  matchId   String?
+  match     Match?   @relation(fields: [matchId], references: [id], onDelete: SetNull)
+  round     Int
+  slotIndex Int
+  label     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Sponsor {
   id          String   @id @default(cuid())
   name        String
+  tier        String
   logoUrl     String?
-  // We change tier to String to allow custom tiers like "Jersey Sponsor"
-  tier        String   @default("PARTNER") 
   websiteUrl  String?
-  description String?  @db.Text
+  description String?
   order       Int      @default(0)
   createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
+
 model Banner {
   id        String   @id @default(cuid())
   imageUrl  String
   linkUrl   String?
-  startAt   DateTime  // auto-shows from this time
-  endAt     DateTime  // auto-hides after this time
-  isActive  Boolean   @default(true) // manual override
-  createdAt DateTime  @default(now())
+  startAt   DateTime
+  endAt     DateTime
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Director {
-  id          String  @id @default(cuid())
+  id          String   @id @default(cuid())
   name        String
   designation String
+  profession  String?
+  bio         String?
   photoUrl    String?
-  bio         String? @db.Text
-  order       Int     @default(0)
-   profession    String?
-}
-
-model HallOfFame {
-  id          String   @id @default(cuid())
-  
-  // FIX: Add these two lines to connect back to Player
-  playerId    String?
-  player      Player?  @relation(fields: [playerId], references: [id], onDelete: Cascade)
-  
-  name        String   // Legendary Name (e.g. "Kazi Mushtaq")
-  title       String   // Legendary Title (e.g. "Best Captain")
-  year        String   // Years Active (e.g. "1995-2005")
-  description String?  @db.Text
-  imageUrl    String?  // High-res portrait
-  
+  order       Int?     @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
@@ -249,11 +235,24 @@ model HallOfFame {
 model Announcement {
   id        String   @id @default(cuid())
   title     String
-  content   String   @db.Text
+  type      String   @default("NEWS")
+  content   String
   imageUrl  String?
   linkUrl   String?
-  type      String   @default("NEWS") // NEWS | EVENT | UPDATE
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model HallOfFame {
+  id          String   @id @default(cuid())
+  name        String
+  title       String
+  year        String
+  description String?
+  imageUrl    String?
+  playerId    String?
+  player      Player?  @relation(fields: [playerId], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

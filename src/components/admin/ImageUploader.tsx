@@ -31,9 +31,9 @@ export function ImageUploader({
       // 2. Upload to Supabase Storage
       const { error } = await supabaseClient.storage
         .from(bucket)
-        .upload(fileName, file, { 
-          cacheControl: "3600", 
-          upsert: false 
+        .upload(fileName, file, {
+          cacheControl: "3600",
+          upsert: false,
         });
 
       if (error) throw error;
@@ -63,14 +63,11 @@ export function ImageUploader({
         {uploading ? (
           <div className="flex flex-col items-center gap-2">
             <Loader2 className="h-8 w-8 animate-spin text-pitch" />
-            <span className="text-[10px] font-bold text-pitch uppercase">Uploading...</span>
+            <span className="text-[10px] font-bold text-pitch uppercase">
+              Uploading...
+            </span>
           </div>
         ) : value && value.trim() !== "" ? (
-          /* 
-             FIX: Only render the Image component if value is a non-empty string.
-             Added 'unoptimized' to prevent Supabase connection timeouts.
-             Added 'sizes' to satisfy Next.js performance requirements.
-          */
           <>
             <Image
               src={value}
@@ -97,7 +94,9 @@ export function ImageUploader({
           <div className="flex flex-col items-center text-muted-foreground group">
             <ImagePlus className="h-10 w-10 mb-2 group-hover:text-pitch transition-colors" />
             <span className="text-xs font-medium">Click to upload</span>
-            <span className="text-[10px] opacity-60 mt-1 uppercase tracking-wider">{aspect}</span>
+            <span className="text-[10px] opacity-60 mt-1 uppercase tracking-wider">
+              {aspect}
+            </span>
           </div>
         )}
       </div>
@@ -113,7 +112,7 @@ export function ImageUploader({
           if (file) handleFile(file);
         }}
       />
-      
+
       <p className="text-[10px] text-muted-foreground text-center italic">
         Max size: 2MB. Format: JPG, PNG, WEBP.
       </p>

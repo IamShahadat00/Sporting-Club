@@ -1,3 +1,4 @@
+
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
@@ -5,28 +6,31 @@ const prisma = new PrismaClient();
 
 async function main() {
   const email = "admin@badc.club";
-  const password = "badc@2026"; // THIS WILL BE YOUR PASSWORD
+  const password = "badc@2026";
   const hashedPassword = await bcrypt.hash(password, 10);
 
-  // This deletes any existing user with this email and creates a fresh one
-  await prisma.user.upsert({
-    where: { email: email },
+  const admin = await prisma.user.upsert({
+    where: { email: email.toLowerCase() },
     update: {
       hashedPassword: hashedPassword,
       role: "ADMIN",
+      isApproved: true,
     },
     create: {
-      email: email,
+      email: email.toLowerCase(),
       name: "BADC Admin",
       hashedPassword: hashedPassword,
       role: "ADMIN",
+      isApproved: true,
     },
   });
 
   console.log("-----------------------------------------");
-  console.log("Admin account created/updated successfully!");
-  console.log(`Email: ${email}`);
+  console.log("Admin account created/verified successfully!");
+  console.log(`Email:    ${admin.email}`);
   console.log(`Password: ${password}`);
+  console.log(`Role:     ${admin.role}`);
+  console.log(`Approved: ${admin.isApproved}`);
   console.log("-----------------------------------------");
 }
 

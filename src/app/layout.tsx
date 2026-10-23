@@ -1,3 +1,4 @@
+import type { Metadata, Viewport } from "next";
 import { Geist } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -7,6 +8,18 @@ import { Toaster } from "@/components/ui/sonner";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist" });
 
+export const metadata: Metadata = {
+  title: "BADC Sporting Club | Official Website",
+  description:
+    "Official portal of BADC Sporting Club. Live scores, fixtures, standings, teams, and tournament updates.",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+};
+
 export default async function RootLayout({
   children,
 }: {
@@ -15,16 +28,15 @@ export default async function RootLayout({
   const session = await auth();
 
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body 
-        className={`${geist.variable} font-sans antialiased`}
-        // ADD THIS LINE to prevent browser extensions from causing crashes
-        suppressHydrationWarning 
+    <html lang="en" suppressHydrationWarning className="overflow-x-hidden">
+      <body
+        className={`${geist.variable} font-sans antialiased bg-background text-foreground min-h-screen overflow-x-hidden transition-colors duration-200`}
+        suppressHydrationWarning
       >
         <SessionProvider session={session}>
           <ThemeProvider
             attribute="class"
-            defaultTheme="system"
+            defaultTheme="dark"
             enableSystem
             disableTransitionOnChange
           >

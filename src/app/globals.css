@@ -5,7 +5,6 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  /* --- CLUB IDENTITY COLORS --- */
   --color-pitch: #10b981;
   --color-pitch-dark: #059669;
   --color-pitch-light: #d1fae5;
@@ -19,7 +18,6 @@
   --color-danger: #f43f5e;
   --color-danger-light: #ffe4e6;
 
-  /* --- SHADCN & THEME VARIABLES --- */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -41,89 +39,60 @@
   --radius-lg: var(--radius);
   --radius-md: calc(var(--radius) - 2px);
   --radius-sm: calc(var(--radius) - 4px);
-
-  --animate-pulseLive: pulseLive 1.5s ease-in-out infinite;
 }
 
-/* --- LIGHT MODE (Professional Slate/Zinc) --- */
+/* LIGHT MODE */
 :root {
-  --background: oklch(0.99 0 0);
-  --foreground: oklch(0.25 0.02 250);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.25 0.02 250);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.25 0.02 250);
-  --primary: oklch(0.62 0.17 160); /* Pitch Green */
-  --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.96 0.01 250);
-  --secondary-foreground: oklch(0.25 0.02 250);
-  --muted: oklch(0.96 0.01 250);
-  --muted-foreground: oklch(0.55 0.02 250);
-  --accent: oklch(0.92 0.02 160);
-  --accent-foreground: oklch(0.25 0.02 250);
-  --destructive: oklch(0.6 0.18 25);
-  --destructive-foreground: oklch(0.99 0 0);
-  --border: oklch(0.92 0.01 250);
-  --input: oklch(0.92 0.01 250);
-  --ring: oklch(0.62 0.17 160);
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --primary: #10b981;
+  --primary-foreground: #ffffff;
+  --secondary: #f1f5f9;
+  --secondary-foreground: #0f172a;
+  --muted: #e2e8f0;
+  --muted-foreground: #334155;
+  --accent: #e2e8f0;
+  --accent-foreground: #0f172a;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: #cbd5e1;
+  --input: #cbd5e1;
+  --ring: #10b981;
   --radius: 1rem;
 }
 
-/* --- DARK MODE (Deep Executive Navy/Zinc) --- */
+/* DARK MODE */
 .dark {
-  --background: oklch(0.18 0.01 250); /* Soft deep gray, not pure black */
-  --foreground: oklch(0.98 0.01 250);
-  --card: oklch(0.22 0.01 250);
-  --card-foreground: oklch(0.98 0.01 250);
-  --popover: oklch(0.18 0.01 250);
-  --popover-foreground: oklch(0.98 0.01 250);
-  --primary: oklch(0.7 0.18 160); /* Brighter Green for Dark Mode */
-  --primary-foreground: oklch(0.1 0.05 160);
-  --secondary: oklch(0.28 0.02 250);
-  --secondary-foreground: oklch(0.98 0.01 250);
-  --muted: oklch(0.28 0.02 250);
-  --muted-foreground: oklch(0.7 0.01 250);
-  --accent: oklch(0.3 0.05 160);
-  --accent-foreground: oklch(0.98 0.01 250);
-  --border: oklch(0.32 0.02 250);
-  --input: oklch(0.32 0.02 250);
-  --ring: oklch(0.7 0.18 160);
+  --background: #020617;
+  --foreground: #f8fafc;
+  --card: #0b1329;
+  --card-foreground: #f8fafc;
+  --popover: #0b1329;
+  --popover-foreground: #f8fafc;
+  --primary: #10b981;
+  --primary-foreground: #000000;
+  --secondary: #1e293b;
+  --secondary-foreground: #f8fafc;
+  --muted: #1e293b;
+  --muted-foreground: #94a3b8;
+  --accent: #1e293b;
+  --accent-foreground: #f8fafc;
+  --destructive: #f43f5e;
+  --destructive-foreground: #ffffff;
+  --border: rgba(255, 255, 255, 0.12);
+  --input: rgba(255, 255, 255, 0.15);
+  --ring: #10b981;
 }
 
 @layer base {
   * {
-    @apply border-border outline-ring/50 transition-colors duration-200;
+    @apply border-border;
   }
-
-  html,
   body {
-    @apply min-h-screen w-full antialiased;
-    text-rendering: optimizeLegibility;
-  }
-
-  body {
-    @apply bg-background text-foreground flex flex-col;
-  }
-
-  /* Improve visibility of bold text in both modes */
-  h1,
-  h2,
-  h3,
-  h4,
-  h5,
-  h6 {
-    @apply tracking-tight font-black;
-  }
-}
-
-@keyframes pulseLive {
-  0%,
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.5;
-    transform: scale(0.95);
+    @apply bg-background text-foreground transition-colors duration-200;
   }
 }
