@@ -18,6 +18,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
   adapter: PrismaAdapter(prisma),
   session: { strategy: "jwt" },
+  trustHost: true, // Ensures localhost is trusted and /api/auth routes are served
   pages: {
     signIn: "/login",
   },
@@ -36,7 +37,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const email = String(credentials.email).toLowerCase().trim();
         const password = String(credentials.password);
 
-        // Find user by email
         const user = await prisma.user.findUnique({
           where: { email },
         });
@@ -45,14 +45,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           throw new InvalidCredentialsError();
         }
 
-        // Validate password
         const isValid = await bcrypt.compare(password, user.hashedPassword);
         if (!isValid) {
           throw new InvalidCredentialsError();
         }
 
-        // Block accounts awaiting admin approval
-        // ADMIN is always allowed. Other roles (MANAGER, EDITOR, VIEWER) require isApproved: true
         if (user.role !== "ADMIN" && !user.isApproved) {
           throw new PendingApprovalError();
         }

@@ -1,110 +1,95 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
-import { Shield, Briefcase, Quote, ArrowLeft } from "lucide-react";
-import Link from "next/link";
+import { Shield, Briefcase, Quote } from "lucide-react";
+import { BackButton } from "@/components/ui/back-button";
 
 export default function DirectorsPage() {
   const [directors, setDirectors] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetch("/api/directors")
       .then((r) => r.json())
-      .then(setDirectors);
+      .then((data) => {
+        setDirectors(Array.isArray(data) ? data : []);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
   }, []);
 
   return (
-    <div className="bg-[#020617] text-white min-h-screen selection:bg-pitch selection:text-white">
-      {/* 1. INTRO HEADER */}
-      <section className="relative h-[60vh] flex flex-col items-center justify-center text-center px-6">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_rgba(16,185,129,0.08),_transparent_70%)]" />
-        <Link
-          href="/tournament-hub"
-          className="inline-flex items-center gap-2 text-slate-500 hover:text-pitch font-black uppercase text-[10px] tracking-[0.4em] mb-12 transition-all"
-        >
-          <ArrowLeft className="h-4 w-4" /> Return to Arena
-        </Link>
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 1 }}
-        >
-          <Shield className="h-16 w-16 mx-auto text-pitch mb-6 opacity-40" />
-          <h1 className="text-7xl md:text-9xl font-black italic uppercase tracking-tighter leading-none mb-4">
-            The <span className="text-pitch">Board</span>
+    <div className="bg-background text-foreground min-h-screen pb-28">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-8 sm:pt-12 space-y-6">
+        <BackButton fallbackHref="/" label="Return to Arena" />
+
+        <div className="text-center py-8 sm:py-12 space-y-2">
+          <Shield className="h-12 w-12 mx-auto text-pitch mb-2" />
+          <h1 className="text-4xl sm:text-6xl font-black italic uppercase tracking-tighter text-foreground">
+            THE <span className="text-pitch">BOARD</span>
           </h1>
-          <p className="text-slate-400 font-medium uppercase tracking-[0.5em] text-xs">
+          <p className="text-muted-foreground text-xs uppercase tracking-[0.25em]">
             Architects of BADC Sporting Excellence
           </p>
-        </motion.div>
-      </section>
+        </div>
 
-      {/* 2. DYNAMIC SCROLLING CARDS */}
-      <div className="pb-40">
-        {directors.map((director, index) => (
-          <motion.section
-            key={director.id}
-            initial={{ opacity: 0, y: 50 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-100px" }}
-            transition={{ duration: 0.8 }}
-            className={`min-h-[80vh] flex items-center border-b border-white/5 py-24 ${index % 2 === 0 ? "" : "bg-slate-900/30"}`}
-          >
+        <div className="space-y-12 sm:space-y-16">
+          {directors.map((director, index) => (
             <div
-              className={`max-w-7xl mx-auto px-6 grid md:grid-cols-2 items-center gap-16 w-full ${index % 2 === 0 ? "" : "md:flex-row-reverse"}`}
+              key={director.id}
+              className={`bg-card border border-border rounded-3xl p-6 sm:p-10 shadow-sm flex flex-col md:flex-row items-center gap-8 ${
+                index % 2 === 1 ? "md:flex-row-reverse" : ""
+              }`}
             >
-              {/* IMAGE SIDE */}
-              <div
-                className={`relative group ${index % 2 === 0 ? "order-1" : "order-1 md:order-2"}`}
-              >
-                <div className="absolute inset-0 bg-pitch/10 blur-[100px] rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
-                <div className="relative aspect-[4/5] rounded-[3rem] overflow-hidden border-2 border-white/10 shadow-2xl scale-100 group-hover:scale-[1.02] transition-transform duration-700">
-                  {director.photoUrl ? (
-                    <img
-                      src={director.photoUrl}
-                      className="h-full w-full object-cover"
-                      alt=""
-                    />
-                  ) : (
-                    <div className="h-full w-full bg-slate-800 flex items-center justify-center font-black text-9xl opacity-10">
-                      {director.name[0]}
-                    </div>
-                  )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#020617] via-transparent to-transparent opacity-80" />
-                </div>
+              <div className="w-full sm:w-60 aspect-[4/5] rounded-2xl overflow-hidden bg-muted border border-border shrink-0">
+                {director.photoUrl ? (
+                  <img
+                    src={director.photoUrl}
+                    alt={director.name}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center font-black text-4xl text-muted-foreground">
+                    {director.name?.[0]}
+                  </div>
+                )}
               </div>
 
-              {/* TEXT SIDE */}
-              <div
-                className={`space-y-8 ${index % 2 === 0 ? "order-2" : "order-2 md:order-1"}`}
-              >
-                <p className="text-pitch font-black uppercase tracking-[0.6em] text-[10px]">
+              <div className="flex-1 space-y-3 text-center sm:text-left">
+                <span className="text-[10px] font-black uppercase text-pitch tracking-widest">
                   {director.designation}
-                </p>
-                <h2 className="text-6xl md:text-8xl font-black uppercase italic tracking-tighter leading-[0.9]">
+                </span>
+
+                <h2 className="text-2xl sm:text-4xl font-black uppercase italic tracking-tight text-foreground">
                   {director.name}
                 </h2>
 
-                <div className="bg-white/5 backdrop-blur-xl p-8 rounded-[2.5rem] border border-white/10 relative overflow-hidden">
-                  <Quote className="absolute top-4 right-4 h-12 w-12 opacity-5 text-white" />
-                  <div className="flex items-center gap-3 mb-6 text-amber-500">
-                    <Briefcase className="h-4 w-4" />
-                    <span className="text-xs font-black uppercase tracking-widest">
-                      {director.profession || "Executive Management"}
-                    </span>
+                {director.profession && (
+                  <div className="flex items-center justify-center sm:justify-start gap-1.5 text-amber-500 text-xs font-bold uppercase">
+                    <Briefcase className="h-3.5 w-3.5" />
+                    <span>{director.profession}</span>
                   </div>
-                  <p className="text-slate-400 text-xl font-medium leading-relaxed italic">
-                    "
+                )}
+
+                <div className="bg-muted/30 p-4 rounded-xl border border-border relative">
+                  <Quote className="h-5 w-5 text-pitch/30 mb-1" />
+                  <p className="text-xs sm:text-sm text-muted-foreground italic leading-relaxed">
+                    &quot;
                     {director.bio ||
-                      "Committed to the growth of sporting culture and the development of the next generation of BADC athletes."}
-                    "
+                      "Committed to sporting excellence and community development."}
+                    &quot;
                   </p>
                 </div>
               </div>
             </div>
-          </motion.section>
-        ))}
+          ))}
+
+          {loading && (
+            <div className="py-20 text-center text-xs font-bold text-pitch animate-pulse uppercase tracking-wider">
+              Loading Board Roster...
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

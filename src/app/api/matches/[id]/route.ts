@@ -1,4 +1,3 @@
-// src/app/api/matches/[id]/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/role-guard";
@@ -7,19 +6,17 @@ import { recalculateStanding } from "@/lib/standing";
 
 export function parseMatchIdentifier(rawParam: string) {
   const decoded = decodeURIComponent(rawParam).trim();
-
-  // Matches "match-02", "match#02", "match-2", or pure number "2"
   const matchNumRegex = /^(?:match[-#_]?)?0*(\d+)$/i;
   const match = decoded.match(matchNumRegex);
 
   if (match) {
-    return { matchNumber: parseInt(match[1], 10) };
+    return { matchNumber: parseInt(match[1], 10), raw: decoded };
   }
 
-  // Fallback to CUID / Database ID
-  return { id: decoded };
+  return { id: decoded, raw: decoded };
 }
 
+// 1. GET SINGLE MATCH
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -29,10 +26,14 @@ export async function GET(
     const identifier = parseMatchIdentifier(id);
 
     const match = await prisma.match.findFirst({
-      where:
-        identifier.matchNumber !== undefined
-          ? { matchNumber: identifier.matchNumber }
-          : { id: identifier.id },
+      where: {
+        OR: [
+          { id: identifier.raw },
+          ...(identifier.matchNumber !== undefined
+            ? [{ matchNumber: identifier.matchNumber }]
+            : []),
+        ],
+      },
       include: {
         homeTeam: { include: { players: { orderBy: { name: "asc" } } } },
         awayTeam: { include: { players: { orderBy: { name: "asc" } } } },
@@ -55,6 +56,7 @@ export async function GET(
   }
 }
 
+// 2. PATCH: UPDATE MATCH (Score, Finalize, or General Reschedule/Edit)
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -66,10 +68,14 @@ export async function PATCH(
     const identifier = parseMatchIdentifier(id);
 
     const targetMatch = await prisma.match.findFirst({
-      where:
-        identifier.matchNumber !== undefined
-          ? { matchNumber: identifier.matchNumber }
-          : { id: identifier.id },
+      where: {
+        OR: [
+          { id: identifier.raw },
+          ...(identifier.matchNumber !== undefined
+            ? [{ matchNumber: identifier.matchNumber }]
+            : []),
+        ],
+      },
       select: { id: true, seasonId: true, homeTeamId: true, awayTeamId: true },
     });
 
@@ -77,7 +83,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Match not found" }, { status: 404 });
     }
 
-    // 1. LIVE SCORE UPDATE
+    // A. LIVE SCORE & EVENTS UPDATE
     if (body.action === "score") {
       const updated = await prisma.match.update({
         where: { id: targetMatch.id },
@@ -94,7 +100,7 @@ export async function PATCH(
       return NextResponse.json(updated);
     }
 
-    // 2. FINALIZE MATCH & MVP AWARD
+    // B. FINALIZE MATCH & MVP
     if (body.action === "finalize") {
       const parsed = matchReportSchema.safeParse(body);
       if (!parsed.success) {
@@ -113,6 +119,8 @@ export async function PATCH(
           awayScore: Number(body.awayScore),
           events: body.events || [],
           broadcastUrl: body.broadcastUrl || null,
+          highlightsUrl: body.highlightsUrl || null,
+          highlightsTitle: body.highlightsTitle || null,
           isPenalty: body.isPenalty ?? false,
           homePens: Number(body.homePens || 0),
           awayPens: Number(body.awayPens || 0),
@@ -122,15 +130,13 @@ export async function PATCH(
                   create: {
                     playerId: body.mvpPlayerId,
                     citation:
-                      body.mvpCitation ||
-                      "Exceptional contribution to the team's victory.",
+                      body.mvpCitation || "Exceptional match performance.",
                     photoUrl: body.mvpPhotoUrl,
                   },
                   update: {
                     playerId: body.mvpPlayerId,
                     citation:
-                      body.mvpCitation ||
-                      "Exceptional contribution to the team's victory.",
+                      body.mvpCitation || "Exceptional match performance.",
                     photoUrl: body.mvpPhotoUrl,
                   },
                 },
@@ -144,9 +150,95 @@ export async function PATCH(
       return NextResponse.json(match);
     }
 
-    return NextResponse.json({ error: "Invalid action" }, { status: 400 });
+    // C. GENERAL MATCH DETAILS EDIT (Reschedule, Teams, Venue, Broadcast, Status)
+    const updateData: any = {};
+    if (body.matchNumber !== undefined)
+      updateData.matchNumber = Number(body.matchNumber);
+    if (body.seasonId) updateData.seasonId = body.seasonId;
+    if (body.homeTeamId) updateData.homeTeamId = body.homeTeamId;
+    if (body.awayTeamId) updateData.awayTeamId = body.awayTeamId;
+    if (body.scheduledStart)
+      updateData.scheduledStart = new Date(body.scheduledStart);
+    if (body.venue !== undefined) updateData.venue = body.venue || null;
+    if (body.broadcastUrl !== undefined)
+      updateData.broadcastUrl = body.broadcastUrl || null;
+    if (body.status) updateData.status = body.status;
+    if (body.homeScore !== undefined && !body.action)
+      updateData.homeScore = Number(body.homeScore);
+    if (body.awayScore !== undefined && !body.action)
+      updateData.awayScore = Number(body.awayScore);
+
+    const updated = await prisma.match.update({
+      where: { id: targetMatch.id },
+      data: updateData,
+    });
+
+    if (body.status === "FINISHED") {
+      await recalculateStanding(updated.seasonId, updated.homeTeamId);
+      await recalculateStanding(updated.seasonId, updated.awayTeamId);
+    }
+
+    return NextResponse.json(updated);
   } catch (error) {
-    console.error("Match patch error:", error);
-    return NextResponse.json({ error: "Update failed" }, { status: 500 });
+    console.error("Match PATCH error:", error);
+    return NextResponse.json(
+      { error: "Failed to update match" },
+      { status: 500 },
+    );
+  }
+}
+
+// 3. DELETE MATCH
+export async function DELETE(
+  _req: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    await requireAdmin();
+    const { id } = await params;
+    const identifier = parseMatchIdentifier(id);
+
+    const target = await prisma.match.findFirst({
+      where: {
+        OR: [
+          { id: identifier.raw },
+          ...(identifier.matchNumber !== undefined
+            ? [{ matchNumber: identifier.matchNumber }]
+            : []),
+        ],
+      },
+    });
+
+    if (!target) {
+      return NextResponse.json({ error: "Match not found" }, { status: 404 });
+    }
+
+    // Unlink any bracket slots
+    await prisma.bracketMatch.updateMany({
+      where: { matchId: target.id },
+      data: { matchId: null },
+    });
+
+    // Remove MVP award
+    await prisma.mvpAward.deleteMany({
+      where: { matchId: target.id },
+    });
+
+    // Delete match
+    await prisma.match.delete({
+      where: { id: target.id },
+    });
+
+    // Recalculate standings
+    await recalculateStanding(target.seasonId, target.homeTeamId);
+    await recalculateStanding(target.seasonId, target.awayTeamId);
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Match DELETE error:", error);
+    return NextResponse.json(
+      { error: "Failed to delete match" },
+      { status: 500 },
+    );
   }
 }

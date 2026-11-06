@@ -4,11 +4,16 @@ import { useState, useEffect } from "react";
 import { MatchCenterContent } from "@/components/shared/MatchCenterContent";
 import { CrudFormDialog } from "@/components/admin/CrudFormDialog";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
-import type { CrudField } from "@/lib/crud-field-types";
+
+function formatForDateTimeInput(dateStr?: string | Date | null) {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
 
 export default function MatchesAdminPage() {
-  const router = useRouter();
   const [data, setData] = useState<{
     today: any[];
     upcoming: any[];
@@ -18,29 +23,33 @@ export default function MatchesAdminPage() {
     upcoming: [],
     past: [],
   });
-  const [teams, setTeams] = useState([]);
-  const [seasons, setSeasons] = useState([]);
+  const [teams, setTeams] = useState<any[]>([]);
+  const [seasons, setSeasons] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
+  const [editingMatch, setEditingMatch] = useState<any | null>(null);
 
   const load = async () => {
     try {
-      const res = await fetch("/api/matches");
-      const matches = await res.json();
+      const [mRes, tRes, sRes] = await Promise.all([
+        fetch("/api/matches").then((r) => r.json()),
+        fetch("/api/teams").then((r) => r.json()),
+        fetch("/api/tournaments").then((r) => r.json()),
+      ]);
 
-      // Sort by Match Number primarily
+      const matches = Array.isArray(mRes) ? mRes : [];
+      setTeams(Array.isArray(tRes) ? tRes : []);
+      setSeasons(Array.isArray(sRes) ? sRes : []);
+
       const sortedMatches = [...matches].sort(
         (a, b) => (a.matchNumber || 0) - (b.matchNumber || 0),
       );
 
-      const now = new Date();
-      const todayStr = now.toDateString();
+      const todayStr = new Date().toDateString();
 
       setData({
-        // Matches scheduled for the current date
         today: sortedMatches.filter(
           (m: any) => new Date(m.scheduledStart).toDateString() === todayStr,
         ),
-        // Matches scheduled in the future (Date is after today)
         upcoming: sortedMatches.filter((m: any) => {
           const mDate = new Date(m.scheduledStart);
           mDate.setHours(0, 0, 0, 0);
@@ -48,7 +57,6 @@ export default function MatchesAdminPage() {
           tDate.setHours(0, 0, 0, 0);
           return mDate > tDate;
         }),
-        // Matches in the past or manually marked as FINISHED
         past: sortedMatches.filter((m: any) => {
           const mDate = new Date(m.scheduledStart);
           mDate.setHours(0, 0, 0, 0);
@@ -57,11 +65,6 @@ export default function MatchesAdminPage() {
           return mDate < tDate || m.status === "FINISHED";
         }),
       });
-
-      const tRes = await fetch("/api/teams");
-      setTeams(await tRes.json());
-      const sRes = await fetch("/api/tournaments");
-      setSeasons(await sRes.json());
     } catch (error) {
       console.error("Fetch Error:", error);
     }
@@ -72,18 +75,35 @@ export default function MatchesAdminPage() {
   }, []);
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Delete this match?")) return;
+    if (!confirm("Are you sure you want to delete this match permanently?"))
+      return;
     const res = await fetch(`/api/matches/${id}`, { method: "DELETE" });
     if (res.ok) {
-      toast.success("Match deleted");
+      toast.success("Match deleted successfully");
       load();
+    } else {
+      toast.error("Failed to delete match");
     }
   };
 
-  const handleCreate = async (values: Record<string, any>) => {
+  const handleEdit = (match: any) => {
+    setEditingMatch({
+      ...match,
+      scheduledStart: formatForDateTimeInput(match.scheduledStart),
+    });
+    setOpen(true);
+  };
+
+  const handleSave = async (values: Record<string, any>) => {
     try {
-      const res = await fetch("/api/matches", {
-        method: "POST",
+      const isEditing = Boolean(editingMatch?.id);
+      const url = isEditing
+        ? `/api/matches/${editingMatch.id}`
+        : "/api/matches";
+      const method = isEditing ? "PATCH" : "POST";
+
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(values),
       });
@@ -91,22 +111,24 @@ export default function MatchesAdminPage() {
       const result = await res.json();
 
       if (res.ok) {
-        toast.success(`Match scheduled!`);
+        toast.success(
+          isEditing
+            ? "Match details updated!"
+            : "Match scheduled successfully!",
+        );
         setOpen(false);
+        setEditingMatch(null);
         load();
       } else {
-        // Zod Error Object Parser
-        if (result.error && typeof result.error === "object") {
-          const fieldErrors = result.error.fieldErrors;
-          const firstKey = Object.keys(fieldErrors)[0];
-          const message = fieldErrors[firstKey][0];
-          toast.error(`${firstKey}: ${message}`);
+        if (result.error?.fieldErrors) {
+          const firstKey = Object.keys(result.error.fieldErrors)[0];
+          toast.error(`${firstKey}: ${result.error.fieldErrors[firstKey][0]}`);
         } else {
-          toast.error(result.error || "Check your data and try again.");
+          toast.error(result.error || "Please check your input values.");
         }
       }
     } catch (e) {
-      toast.error("Network error.");
+      toast.error("Network error while saving match.");
     }
   };
 
@@ -118,23 +140,35 @@ export default function MatchesAdminPage() {
         past={data.past}
         isAdmin={true}
         onDelete={handleDelete}
-        onCreate={() => setOpen(true)}
+        onEdit={handleEdit}
+        onCreate={() => {
+          setEditingMatch(null);
+          setOpen(true);
+        }}
       />
 
       <CrudFormDialog
         open={open}
-        onOpenChange={setOpen}
-        title="Schedule / Reschedule Match"
+        onOpenChange={(v) => {
+          setOpen(v);
+          if (!v) setEditingMatch(null);
+        }}
+        title={
+          editingMatch
+            ? `Edit Match #${editingMatch.matchNumber}`
+            : "Schedule New Match"
+        }
+        initialValues={editingMatch}
         fields={[
           {
             name: "matchNumber",
             label: "Match Serial #",
             type: "number",
-            required: true,
+            placeholder: "e.g. 1",
           },
           {
             name: "seasonId",
-            label: "Season",
+            label: "Tournament / Season",
             type: "select",
             required: true,
             options: seasons.map((s: any) => ({ label: s.name, value: s.id })),
@@ -155,14 +189,35 @@ export default function MatchesAdminPage() {
           },
           {
             name: "scheduledStart",
-            label: "Kickoff Time (Select date & time)",
+            label: "Kickoff Date & Time",
             type: "date",
             required: true,
           },
-          { name: "venue", label: "Venue", type: "text" },
-          { name: "broadcastUrl", label: "Broadcast URL", type: "text" },
+          {
+            name: "venue",
+            label: "Stadium / Venue",
+            type: "text",
+            placeholder: "e.g. BADC Arena",
+          },
+          {
+            name: "broadcastUrl",
+            label: "Broadcast Channel URL",
+            type: "text",
+            placeholder: "https://youtube.com/watch?v=...",
+          },
+          {
+            name: "status",
+            label: "Match Status",
+            type: "select",
+            options: [
+              { label: "Scheduled", value: "SCHEDULED" },
+              { label: "Live", value: "LIVE" },
+              { label: "Finished", value: "FINISHED" },
+              { label: "Postponed", value: "POSTPONED" },
+            ],
+          },
         ]}
-        onSubmit={handleCreate}
+        onSubmit={handleSave}
       />
     </div>
   );
