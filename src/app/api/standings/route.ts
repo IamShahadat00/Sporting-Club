@@ -10,44 +10,86 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "seasonId is required" }, { status: 400 });
     }
 
-    // 1. Fetch standings from DB
-    const standings = await prisma.standing.findMany({
-      where: { seasonId: seasonId },
-      include: { team: true },
-      orderBy: [
-        { points: "desc" },
-        { goalDiff: "desc" },
-        { goalsFor: "desc" }
-      ]
+    // 1. Fetch all registered teams in the league
+    const allTeams = await prisma.team.findMany({
+      orderBy: { name: "asc" },
     });
 
-    // 2. Calculate Form (Last 5 matches) for each team
+    if (allTeams.length === 0) {
+      return NextResponse.json([]);
+    }
+
+    // 2. Fetch existing standings for this season
+    const existingStandings = await prisma.standing.findMany({
+      where: { seasonId },
+      include: { team: true },
+    });
+
+    const existingMap = new Map(existingStandings.map((s) => [s.teamId, s]));
+
+    // 3. Ensure every registered team has an entry in this season's standings
+    const completeStandings = await Promise.all(
+      allTeams.map(async (team) => {
+        const existing = existingMap.get(team.id);
+        if (existing) return existing;
+
+        // Auto-create initial 0-stats standing for any team not yet recorded
+        return await prisma.standing.upsert({
+          where: { seasonId_teamId: { seasonId, teamId: team.id } },
+          create: {
+            seasonId,
+            teamId: team.id,
+            played: 0,
+            won: 0,
+            drawn: 0,
+            lost: 0,
+            points: 0,
+            goalDiff: 0,
+            goalsFor: 0,
+            goalsAgainst: 0,
+          },
+          update: {},
+          include: { team: true },
+        });
+      })
+    );
+
+    // 4. Calculate Form (Last 5 finished matches) for each team
     const standingsWithForm = await Promise.all(
-      standings.map(async (s) => {
+      completeStandings.map(async (s) => {
         const lastMatches = await prisma.match.findMany({
           where: {
             seasonId,
             status: "FINISHED",
-            OR: [{ homeTeamId: s.teamId }, { awayTeamId: s.teamId }]
+            OR: [{ homeTeamId: s.teamId }, { awayTeamId: s.teamId }],
           },
-          orderBy: { scheduledStart: 'desc' },
-          take: 5
+          orderBy: { scheduledStart: "desc" },
+          take: 5,
         });
 
-        // Map results to W, D, L
-        const form = lastMatches.map(m => {
-          const isHome = m.homeTeamId === s.teamId;
-          const teamScore = isHome ? m.homeScore : m.awayScore;
-          const oppScore = isHome ? m.awayScore : m.homeScore;
+        const form = lastMatches
+          .map((m) => {
+            const isHome = m.homeTeamId === s.teamId;
+            const teamScore = isHome ? m.homeScore : m.awayScore;
+            const oppScore = isHome ? m.awayScore : m.homeScore;
 
-          if (teamScore > oppScore) return 'W';
-          if (teamScore < oppScore) return 'L';
-          return 'D';
-        }).reverse(); // Reverse so latest is on the right
+            if (teamScore > oppScore) return "W";
+            if (teamScore < oppScore) return "L";
+            return "D";
+          })
+          .reverse();
 
         return { ...s, form };
       })
     );
+
+    // 5. Official Football Ranking Sort: Points -> Goal Difference -> Goals For -> Goals Conceded (lowest)
+    standingsWithForm.sort((a, b) => {
+      if (b.points !== a.points) return b.points - a.points;
+      if (b.goalDiff !== a.goalDiff) return b.goalDiff - a.goalDiff;
+      if (b.goalsFor !== a.goalsFor) return b.goalsFor - a.goalsFor;
+      return a.goalsAgainst - b.goalsAgainst;
+    });
 
     return NextResponse.json(standingsWithForm);
   } catch (error) {

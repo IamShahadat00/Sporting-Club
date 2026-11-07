@@ -5,16 +5,24 @@ import { ArrowLeft } from "lucide-react";
 
 export function BackButton({
   fallbackHref = "/",
+  forceHref,
   label = "Back",
   className = "",
 }: {
   fallbackHref?: string;
+  forceHref?: string;
   label?: string;
   className?: string;
 }) {
   const router = useRouter();
 
   const handleBack = () => {
+    // If a specific destination is forced (like the landing page on /login), always go there directly
+    if (forceHref) {
+      router.push(forceHref);
+      return;
+    }
+
     if (typeof window !== "undefined" && window.history.length > 2) {
       router.back();
     } else {
@@ -33,3 +41,5 @@ export function BackButton({
     </button>
   );
 }
+
+export default BackButton;

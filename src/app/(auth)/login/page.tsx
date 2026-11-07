@@ -49,7 +49,6 @@ function LoginForm() {
         setLoading(false);
       } else {
         toast.success("Identity Verified! Entering dashboard...");
-        // Hard redirect ensures session cookie is cleanly sent to the server layout
         window.location.href = callbackUrl;
       }
     } catch {
@@ -60,10 +59,8 @@ function LoginForm() {
 
   return (
     <div className="w-full max-w-md relative z-10 space-y-6">
-      <BackButton
-        fallbackHref="https://sporting-club-m9xv3nncg-shahadat-dev1.vercel.app"
-        label="Back to Home"
-      />
+      {/* Clicking this button navigates directly to "/" */}
+      <BackButton forceHref="/" fallbackHref="/" label="Back to Home" />
 
       <motion.div
         initial={{ opacity: 0, y: 16 }}
@@ -79,7 +76,7 @@ function LoginForm() {
                 System Login
               </h1>
               <p className="text-muted-foreground text-xs font-bold uppercase tracking-widest px-2">
-                Authorized Personnel Only
+                Administrator & Manager Portal
               </p>
             </div>
 
