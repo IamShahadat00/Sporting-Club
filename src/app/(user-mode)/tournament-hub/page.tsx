@@ -200,7 +200,7 @@ export default async function TournamentHubPage() {
                   </div>
                 </div>
                 <span className="text-lg font-black text-pitch ml-2">
-                  {p.goals} G
+                  {p.goals} ⚽
                 </span>
               </div>
             ))}
