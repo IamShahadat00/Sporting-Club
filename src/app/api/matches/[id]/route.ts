@@ -1,3 +1,4 @@
+// src/app/api/matches/[id]/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/role-guard";
@@ -16,7 +17,6 @@ export function parseMatchIdentifier(rawParam: string) {
   return { id: decoded, raw: decoded };
 }
 
-// 1. GET SINGLE MATCH
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -48,7 +48,6 @@ export async function GET(
 
     return NextResponse.json(match);
   } catch (error) {
-    console.error("GET Match Error:", error);
     return NextResponse.json(
       { error: "Failed to fetch match details" },
       { status: 500 },
@@ -56,7 +55,6 @@ export async function GET(
   }
 }
 
-// 2. PATCH: UPDATE MATCH (Score, Finalize, or General Reschedule/Edit)
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -83,7 +81,18 @@ export async function PATCH(
       return NextResponse.json({ error: "Match not found" }, { status: 404 });
     }
 
-    // A. LIVE SCORE & EVENTS UPDATE
+    // 1. TACTICAL LINEUP / FORMATION UPDATE
+    if (body.action === "lineup" || body.lineups !== undefined) {
+      const updated = await prisma.match.update({
+        where: { id: targetMatch.id },
+        data: {
+          lineups: body.lineups,
+        },
+      });
+      return NextResponse.json(updated);
+    }
+
+    // 2. LIVE SCORE & EVENTS UPDATE
     if (body.action === "score") {
       const updated = await prisma.match.update({
         where: { id: targetMatch.id },
@@ -100,7 +109,7 @@ export async function PATCH(
       return NextResponse.json(updated);
     }
 
-    // B. FINALIZE MATCH & MVP
+    // 3. FINALIZE MATCH & MVP
     if (body.action === "finalize") {
       const parsed = matchReportSchema.safeParse(body);
       if (!parsed.success) {
@@ -150,7 +159,7 @@ export async function PATCH(
       return NextResponse.json(match);
     }
 
-    // C. GENERAL MATCH DETAILS EDIT (Reschedule, Teams, Venue, Broadcast, Status)
+    // 4. GENERAL EDIT
     const updateData: any = {};
     if (body.matchNumber !== undefined)
       updateData.matchNumber = Number(body.matchNumber);
@@ -163,32 +172,19 @@ export async function PATCH(
     if (body.broadcastUrl !== undefined)
       updateData.broadcastUrl = body.broadcastUrl || null;
     if (body.status) updateData.status = body.status;
-    if (body.homeScore !== undefined && !body.action)
-      updateData.homeScore = Number(body.homeScore);
-    if (body.awayScore !== undefined && !body.action)
-      updateData.awayScore = Number(body.awayScore);
+    if (body.lineups !== undefined) updateData.lineups = body.lineups;
 
     const updated = await prisma.match.update({
       where: { id: targetMatch.id },
       data: updateData,
     });
 
-    if (body.status === "FINISHED") {
-      await recalculateStanding(updated.seasonId, updated.homeTeamId);
-      await recalculateStanding(updated.seasonId, updated.awayTeamId);
-    }
-
     return NextResponse.json(updated);
   } catch (error) {
-    console.error("Match PATCH error:", error);
-    return NextResponse.json(
-      { error: "Failed to update match" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Update failed" }, { status: 500 });
   }
 }
 
-// 3. DELETE MATCH
 export async function DELETE(
   _req: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -213,29 +209,18 @@ export async function DELETE(
       return NextResponse.json({ error: "Match not found" }, { status: 404 });
     }
 
-    // Unlink any bracket slots
     await prisma.bracketMatch.updateMany({
       where: { matchId: target.id },
       data: { matchId: null },
     });
+    await prisma.mvpAward.deleteMany({ where: { matchId: target.id } });
+    await prisma.match.delete({ where: { id: target.id } });
 
-    // Remove MVP award
-    await prisma.mvpAward.deleteMany({
-      where: { matchId: target.id },
-    });
-
-    // Delete match
-    await prisma.match.delete({
-      where: { id: target.id },
-    });
-
-    // Recalculate standings
     await recalculateStanding(target.seasonId, target.homeTeamId);
     await recalculateStanding(target.seasonId, target.awayTeamId);
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Match DELETE error:", error);
     return NextResponse.json(
       { error: "Failed to delete match" },
       { status: 500 },

@@ -99,8 +99,11 @@ model Player {
   mvpAwards     MvpAward[]
   registrations Registration[]
   hallOfFame    HallOfFame[]
+  ratings PlayerRating[]
 }
 
+// Inside model Match in prisma/schema.prisma:
+// Inside model Match in prisma/schema.prisma:
 model Match {
   id              String         @id @default(cuid())
   matchNumber     Int
@@ -121,6 +124,7 @@ model Match {
   highlightsTitle String?
   report          String?
   events          Json?          @default("[]")
+  lineups         Json?          @default("{}") // <-- STORES TACTICAL FORMATION & SLOTS
   isPenalty       Boolean        @default(false)
   homePens        Int            @default(0)
   awayPens        Int            @default(0)
@@ -130,8 +134,8 @@ model Match {
   updatedAt       DateTime       @updatedAt
   mvpAward        MvpAward?
   bracketMatches  BracketMatch[]
+  playerRatings   PlayerRating[]
 }
-
 model MvpAward {
   id        String   @id @default(cuid())
   matchId   String   @unique
@@ -255,4 +259,21 @@ model HallOfFame {
   player      Player?  @relation(fields: [playerId], references: [id], onDelete: SetNull)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+// Add inside prisma/schema.prisma
+
+model PlayerRating {
+  id        String   @id @default(cuid())
+  matchId   String
+  match     Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  playerId  String
+  player    Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  userId    String?
+  userIp    String   @default("anonymous")
+  rating    Float    // Rating score: 1.0 to 10.0
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([matchId, playerId, userIp])
 }

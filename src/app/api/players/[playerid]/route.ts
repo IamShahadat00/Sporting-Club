@@ -1,3 +1,4 @@
+// src/app/api/players/[playerid]/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/role-guard";
@@ -20,17 +21,28 @@ export async function PATCH(
       );
     }
 
-    const cleanedData: any = {
-      ...parsed.data,
-      teamId:
-        parsed.data.teamId === "none" || !parsed.data.teamId
-          ? null
-          : parsed.data.teamId,
-      photoUrl:
-        parsed.data.photoUrl && parsed.data.photoUrl.trim() !== ""
-          ? parsed.data.photoUrl
-          : null,
-    };
+    // CRITICAL FIX: Only update fields that were explicitly provided in the request.
+    // Do NOT overwrite teamId or photoUrl if they were not sent in this update!
+    const cleanedData: any = {};
+    if (parsed.data.name !== undefined) cleanedData.name = parsed.data.name;
+    if (parsed.data.position !== undefined)
+      cleanedData.position = parsed.data.position || null;
+    if (parsed.data.jerseyNumber !== undefined)
+      cleanedData.jerseyNumber = parsed.data.jerseyNumber || null;
+    if (parsed.data.strongFoot !== undefined)
+      cleanedData.strongFoot = parsed.data.strongFoot || null;
+    if (parsed.data.bio !== undefined)
+      cleanedData.bio = parsed.data.bio || null;
+
+    if (body.teamId !== undefined) {
+      cleanedData.teamId =
+        body.teamId === "none" || !body.teamId ? null : body.teamId;
+    }
+
+    if (body.photoUrl !== undefined) {
+      cleanedData.photoUrl =
+        body.photoUrl && body.photoUrl.trim() !== "" ? body.photoUrl : null;
+    }
 
     const player = await prisma.player.update({
       where: { id: playerid },

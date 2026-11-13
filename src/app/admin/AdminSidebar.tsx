@@ -8,6 +8,7 @@ import { signOut } from "next-auth/react";
 import {
   LayoutDashboard,
   Radio,
+  Star, // <-- Added missing import
   Trophy,
   GitBranch,
   Users,
@@ -28,6 +29,7 @@ import { AnimatePresence, motion } from "framer-motion";
 const NAV = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/matches", label: "Matches", icon: Radio },
+  { href: "/admin/ratings", label: "Player Ratings & Stats", icon: Star },
   { href: "/admin/tournaments", label: "Tournaments", icon: Trophy },
   { href: "/admin/brackets", label: "Brackets", icon: GitBranch },
   { href: "/admin/registrations", label: "Registrations", icon: UserCheck },
@@ -72,7 +74,7 @@ export function AdminSidebar({ user }: { user: any }) {
 
   return (
     <>
-      {/* MOBILE TOP BAR (Visible on < lg screens) */}
+      {/* MOBILE TOP BAR (Fixed on Mobile) */}
       <div className="lg:hidden sticky top-0 z-40 w-full bg-card border-b border-border px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Shield className="h-5 w-5 text-pitch" />
@@ -86,6 +88,7 @@ export function AdminSidebar({ user }: { user: any }) {
             {user?.role}
           </Badge>
           <button
+            type="button"
             onClick={() => setMobileOpen(!mobileOpen)}
             className="p-2 rounded-xl text-foreground hover:bg-muted transition-colors"
             aria-label="Toggle Navigation"
@@ -119,6 +122,7 @@ export function AdminSidebar({ user }: { user: any }) {
                 <ExternalLink className="h-4 w-4" /> View Live Site
               </Link>
               <button
+                type="button"
                 onClick={() => signOut({ callbackUrl: "/login" })}
                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold text-red-500 hover:bg-red-500/10 transition-colors"
               >
@@ -129,27 +133,28 @@ export function AdminSidebar({ user }: { user: any }) {
         )}
       </AnimatePresence>
 
-      {/* DESKTOP SIDEBAR (Visible on >= lg screens) */}
-      <aside className="hidden lg:flex w-64 border-r border-border bg-card p-4 flex-col sticky top-0 h-screen shrink-0">
-        <div className="flex-1 space-y-1 overflow-y-auto no-scrollbar">
-          <div className="px-3 py-4 mb-3 border-b border-border">
-            <h2 className="font-black text-xl text-pitch uppercase tracking-tighter italic">
-              BADC Control
-            </h2>
-            <div className="flex items-center justify-between mt-2">
-              <span className="text-xs font-bold text-muted-foreground truncate max-w-[120px]">
-                {user?.name}
-              </span>
-              <Badge className="bg-pitch/20 text-pitch border-pitch/30 text-[9px] uppercase font-black">
-                {user?.role}
-              </Badge>
-            </div>
+      {/* DESKTOP SIDEBAR - LOCKED AND STATIONARY */}
+      <aside className="hidden lg:flex w-64 border-r border-border bg-card p-4 flex-col sticky top-0 h-screen shrink-0 overflow-hidden select-none">
+        <div className="px-3 py-3 mb-2 border-b border-border">
+          <h2 className="font-black text-xl text-pitch uppercase tracking-tighter italic">
+            BADC Control
+          </h2>
+          <div className="flex items-center justify-between mt-1.5">
+            <span className="text-xs font-bold text-muted-foreground truncate max-w-[120px]">
+              {user?.name}
+            </span>
+            <Badge className="bg-pitch/20 text-pitch border-pitch/30 text-[9px] uppercase font-black">
+              {user?.role}
+            </Badge>
           </div>
+        </div>
 
+        {/* Scrollable Nav Items within Stationary Sidebar */}
+        <div className="flex-1 overflow-y-auto pr-1 space-y-1 no-scrollbar">
           <NavLinks />
         </div>
 
-        <div className="border-t border-border pt-3 space-y-1.5">
+        <div className="border-t border-border pt-3 mt-2 space-y-1.5 shrink-0">
           <Link
             href="/"
             className="flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
@@ -157,6 +162,7 @@ export function AdminSidebar({ user }: { user: any }) {
             <ExternalLink className="h-4 w-4" /> View Live Site
           </Link>
           <button
+            type="button"
             onClick={() => signOut({ callbackUrl: "/login" })}
             className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold text-red-500 hover:bg-red-500/10 transition-colors"
           >
